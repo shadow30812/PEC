@@ -94,6 +94,91 @@
     `;
   }
 
+  // Helper to render the Load block (R, RL, or RLE with battery)
+  function renderLoadBlockSVG(opts) {
+    const {
+      x,
+      loadType = 'RL',
+      R = 20,
+      L_mH = 45,
+      E_emf = 24,
+      vo = 0,
+      io = 0,
+      loadActive = false,
+      topY = -120,
+      botY = 120,
+      topLabel = `+ Vo (${vo.toFixed(1)} V)`,
+      botLabel = '- Vo (GND)'
+    } = opts;
+
+    const isR = loadType === 'R';
+    const isRL = loadType === 'RL';
+    const isRLE = loadType === 'RLE';
+
+    return `
+      <g transform="translate(${x}, 180)">
+        <!-- Top and Bottom connection lines to rails -->
+        <line x1="0" y1="${topY}" x2="0" y2="-62" class="${wireClass(loadActive)}"/>
+        <line x1="0" y1="62" x2="0" y2="${botY}" class="${wireClass(loadActive)}"/>
+
+        <!-- Terminal labels -->
+        <text x="14" y="${topY + 10}" font-size="11" font-weight="700" fill="var(--color-rose)">${topLabel}</text>
+        <text x="14" y="${botY - 2}" font-size="11" font-weight="700" fill="var(--color-cyan)">${botLabel}</text>
+
+        <!-- Load Container Box -->
+        <rect x="-37" y="-62" width="74" height="124" rx="8" class="load-box-rect" fill="#0f1b33" stroke="${loadActive ? 'var(--color-cyan)' : 'var(--border-light)'}" stroke-width="1.8"/>
+        <text x="0" y="-46" text-anchor="middle" font-size="11" font-weight="800" fill="var(--color-cyan)">${loadType} Load</text>
+
+        ${isR ? `
+          <!-- R-Only Load Elements -->
+          <path d="M 0 -34 L -6 -28 L 6 -20 L -6 -12 L 6 -4 L 0 2" fill="none" stroke="var(--color-amber)" stroke-width="2"/>
+          <text x="0" y="16" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--text-muted)">R = ${R} Ω</text>
+          <g transform="translate(0, 30)">
+            <rect x="-31" y="0" width="62" height="18" rx="4" fill="rgba(5, 223, 114, 0.15)" stroke="rgba(5, 223, 114, 0.35)"/>
+            <text x="0" y="13" text-anchor="middle" font-size="9.5" font-family="var(--font-mono)" font-weight="700" fill="var(--color-emerald)">i = ${io >= 0 ? '+' : ''}${io.toFixed(2)} A</text>
+          </g>
+        ` : ''}
+
+        ${isRL ? `
+          <!-- RL Load Elements -->
+          <path d="M 0 -36 L -5 -31 L 5 -25 L -5 -19 L 5 -13 L 0 -9" fill="none" stroke="var(--color-amber)" stroke-width="1.8"/>
+          <text x="0" y="-1" text-anchor="middle" font-size="9" font-family="var(--font-mono)" fill="var(--text-muted)">R = ${R} Ω</text>
+
+          <path d="M -10 10 C -10 6 -3 6 -3 10 C -3 6 4 6 4 10 C 4 6 11 6 11 10" fill="none" stroke="var(--color-cyan)" stroke-width="1.8"/>
+          <text x="0" y="22" text-anchor="middle" font-size="9" font-family="var(--font-mono)" fill="var(--text-muted)">L = ${L_mH} mH</text>
+
+          <g transform="translate(0, 31)">
+            <rect x="-31" y="0" width="62" height="18" rx="4" fill="rgba(5, 223, 114, 0.15)" stroke="rgba(5, 223, 114, 0.35)"/>
+            <text x="0" y="13" text-anchor="middle" font-size="9.5" font-family="var(--font-mono)" font-weight="700" fill="var(--color-emerald)">i = ${io >= 0 ? '+' : ''}${io.toFixed(2)} A</text>
+          </g>
+        ` : ''}
+
+        ${isRLE ? `
+          <!-- RLE Load Elements: Resistor + Inductor + DC Battery -->
+          <path d="M 0 -38 L -4 -34 L 4 -29 L -4 -24 L 4 -19 L 0 -16" fill="none" stroke="var(--color-amber)" stroke-width="1.6"/>
+          <text x="0" y="-8" text-anchor="middle" font-size="8.5" font-family="var(--font-mono)" fill="var(--text-muted)">R = ${R} Ω</text>
+
+          <path d="M -9 2 C -9 -1 -3 -1 -3 2 C -3 -1 3 -1 3 2 C 3 -1 9 -1 9 2" fill="none" stroke="var(--color-cyan)" stroke-width="1.6"/>
+          <text x="0" y="11" text-anchor="middle" font-size="8.5" font-family="var(--font-mono)" fill="var(--text-muted)">L = ${L_mH} mH</text>
+
+          <!-- DC Battery Symbol (E Back-EMF) -->
+          <g transform="translate(0, 22)">
+            <line x1="-10" y1="0" x2="10" y2="0" stroke="var(--color-rose)" stroke-width="2"/>
+            <text x="-15" y="3" font-size="8" font-weight="800" fill="var(--color-rose)">+</text>
+            <line x1="-5" y1="4" x2="5" y2="4" stroke="var(--color-rose)" stroke-width="2.5"/>
+            <text x="-14" y="9" font-size="9" font-weight="800" fill="var(--color-rose)">−</text>
+            <text x="0" y="14" text-anchor="middle" font-size="8.5" font-family="var(--font-mono)" font-weight="700" fill="var(--color-rose)">E = ${E_emf} V</text>
+          </g>
+
+          <g transform="translate(0, 42)">
+            <rect x="-31" y="0" width="62" height="15" rx="3" fill="rgba(5, 223, 114, 0.15)" stroke="rgba(5, 223, 114, 0.35)"/>
+            <text x="0" y="11" text-anchor="middle" font-size="9" font-family="var(--font-mono)" font-weight="700" fill="var(--color-emerald)">i = ${io >= 0 ? '+' : ''}${io.toFixed(2)} A</text>
+          </g>
+        ` : ''}
+      </g>
+    `;
+  }
+
   // --------------------------------------------------------------------------
   // 1. SINGLE-PHASE FULL-BRIDGE SVG
   // --------------------------------------------------------------------------
@@ -103,9 +188,16 @@
     const isSemi = deviceType === 'semi';
 
     // Bridge legs: T1(top left), T4(bottom left), T3(top right), T2(bottom right)
-    // Conduction pairs
-    const pair12 = (devices.T1 || devices.D1) && (devices.T2 || devices.D2);
-    const pair34 = (devices.T3 || devices.D3) && (devices.T4 || devices.D4);
+    const condTop1 = !!(devices.T1 || devices.D1);
+    const condTop3 = !!(devices.T3 || devices.D3);
+    const condTopAny = condTop1 || condTop3;
+
+    const condBot4 = !!(devices.T4 || devices.D4);
+    const condBot2 = !!(devices.T2 || devices.D2);
+    const condBotAny = condBot4 || condBot2;
+
+    const pair12 = condTop1 && condBot2;
+    const pair34 = condTop3 && condBot4;
     const pairSemiFW = (devices.D2 && devices.D4) || isFWDConducting;
 
     const sourceActive = (pair12 || pair34) && !pairSemiFW;
@@ -121,29 +213,39 @@
           </radialGradient>
         </defs>
 
-        <!-- Rail Lines -->
-        <!-- Top DC Rail (+Vo) -->
-        <line x1="220" y1="60" x2="590" y2="60" class="${wireClass(loadActive)}"/>
-        <!-- Bottom DC Rail (-Vo / GND) -->
-        <line x1="220" y1="300" x2="590" y2="300" class="${wireClass(loadActive)}"/>
+        <!-- Segmented Top DC Rail (+Vo) -->
+        <!-- 220 to 320: only active if Leg 1 (T1/D1) conducts -->
+        <line x1="220" y1="60" x2="320" y2="60" class="${wireClass(condTop1)}"/>
+        <!-- 320 to 440: active if either T1 or T3 conducts -->
+        <line x1="320" y1="60" x2="440" y2="60" class="${wireClass(condTopAny)}"/>
+        <!-- 440 to 590: active if load conducts (bridge or FWD) -->
+        <line x1="440" y1="60" x2="590" y2="60" class="${wireClass(loadActive)}"/>
+
+        <!-- Segmented Bottom DC Rail (-Vo / Return) -->
+        <!-- 220 to 320: active only if current returns to Leg 1 (T4/D4) -->
+        <line x1="220" y1="300" x2="320" y2="300" class="${wireClass(condBot4)}"/>
+        <!-- 320 to 440: active if current returns through bridge (T4 or T2) -->
+        <line x1="320" y1="300" x2="440" y2="300" class="${wireClass(condBotAny)}"/>
+        <!-- 440 to 590: carries all load return current -->
+        <line x1="440" y1="300" x2="590" y2="300" class="${wireClass(loadActive)}"/>
 
         <!-- AC Source Connections -->
         <!-- Phase A Line to Left Leg (between T1 and T4) -->
         <path d="M 100 150 L 220 150" class="${wireClass(sourceActive)}"/>
         <!-- Neutral Line to Right Leg (between T3 and T2) -->
-        <path d="M 100 210 L 150 210 L 150 210 L 320 210" class="${wireClass(sourceActive)}"/>
+        <path d="M 100 210 L 320 210" class="${wireClass(sourceActive)}"/>
 
         <!-- Leg 1 Wires (Vertical connections) -->
-        <line x1="220" y1="60" x2="220" y2="90" class="${wireClass(devices.T1 || devices.D1)}"/>
-        <line x1="220" y1="150" x2="220" y2="122" class="${wireClass(devices.T1 || devices.D1)}"/>
-        <line x1="220" y1="150" x2="220" y2="238" class="${wireClass(devices.T4 || devices.D4)}"/>
-        <line x1="220" y1="270" x2="220" y2="300" class="${wireClass(devices.T4 || devices.D4)}"/>
+        <line x1="220" y1="60" x2="220" y2="90" class="${wireClass(condTop1)}"/>
+        <line x1="220" y1="150" x2="220" y2="122" class="${wireClass(condTop1)}"/>
+        <line x1="220" y1="150" x2="220" y2="238" class="${wireClass(condBot4)}"/>
+        <line x1="220" y1="270" x2="220" y2="300" class="${wireClass(condBot4)}"/>
 
         <!-- Leg 2 Wires (Vertical connections) -->
-        <line x1="320" y1="60" x2="320" y2="90" class="${wireClass(devices.T3 || devices.D3)}"/>
-        <line x1="320" y1="210" x2="320" y2="122" class="${wireClass(devices.T3 || devices.D3)}"/>
-        <line x1="320" y1="210" x2="320" y2="238" class="${wireClass(devices.T2 || devices.D2)}"/>
-        <line x1="320" y1="270" x2="320" y2="300" class="${wireClass(devices.T2 || devices.D2)}"/>
+        <line x1="320" y1="60" x2="320" y2="90" class="${wireClass(condTop3)}"/>
+        <line x1="320" y1="210" x2="320" y2="122" class="${wireClass(condTop3)}"/>
+        <line x1="320" y1="210" x2="320" y2="238" class="${wireClass(condBot2)}"/>
+        <line x1="320" y1="270" x2="320" y2="300" class="${wireClass(condBot2)}"/>
 
         <!-- AC Source Symbol -->
         <g transform="translate(100, 180)">
@@ -156,10 +258,10 @@
         </g>
 
         <!-- Switches: T1, T4, T3, T2 -->
-        ${renderSwitchSVG('T1', isSemi || isThyristor ? 'T1' : 'D1', isThyristor || isSemi, 220, 106, devices.T1 || devices.D1)}
-        ${renderSwitchSVG('T4', isSemi ? 'D4' : (isThyristor ? 'T4' : 'D4'), isThyristor, 220, 254, devices.T4 || devices.D4)}
-        ${renderSwitchSVG('T3', isSemi ? 'T3' : (isThyristor ? 'T3' : 'D3'), isThyristor || isSemi, 320, 106, devices.T3 || devices.D3)}
-        ${renderSwitchSVG('T2', isSemi ? 'D2' : (isThyristor ? 'T2' : 'D2'), isThyristor, 320, 254, devices.T2 || devices.D2)}
+        ${renderSwitchSVG('T1', isSemi || isThyristor ? 'T1' : 'D1', isThyristor || isSemi, 220, 106, condTop1)}
+        ${renderSwitchSVG('T4', isSemi ? 'D4' : (isThyristor ? 'T4' : 'D4'), isThyristor, 220, 254, condBot4)}
+        ${renderSwitchSVG('T3', isSemi ? 'T3' : (isThyristor ? 'T3' : 'D3'), isThyristor || isSemi, 320, 106, condTop3)}
+        ${renderSwitchSVG('T2', isSemi ? 'D2' : (isThyristor ? 'T2' : 'D2'), isThyristor, 320, 254, condBot2)}
 
         <!-- Freewheeling Diode Branch (Optional) -->
         <g transform="translate(440, 180)" opacity="${hasFWD ? '1' : '0.25'}">
@@ -173,35 +275,10 @@
         </g>
 
         <!-- Load Block (Far Right) -->
-        <g transform="translate(590, 180)">
-          <!-- Top and Bottom connection lines -->
-          <line x1="0" y1="-120" x2="0" y2="-55" class="${wireClass(loadActive)}"/>
-          <line x1="0" y1="55" x2="0" y2="120" class="${wireClass(loadActive)}"/>
-          
-          <!-- Rail labels -->
-          <text x="15" y="-115" font-size="11" font-weight="700" fill="var(--color-rose)">+ Vo (${vo.toFixed(1)} V)</text>
-          <text x="15" y="125" font-size="11" font-weight="700" fill="var(--color-cyan)">- Vo (GND)</text>
-
-          <!-- Load Box -->
-          <rect x="-35" y="-55" width="70" height="110" rx="8" class="load-box-rect" fill="#0f1b33" stroke="${loadActive ? 'var(--color-cyan)' : 'var(--border-light)'}" stroke-width="1.8"/>
-          <text x="0" y="-38" text-anchor="middle" font-size="11" font-weight="800" fill="var(--color-cyan)">${loadType} Load</text>
-
-          <!-- Resistor Zigzag Symbol -->
-          <path d="M 0 -26 L -6 -21 L 6 -14 L -6 -7 L 6 0 L 0 5" fill="none" stroke="var(--color-amber)" stroke-width="2"/>
-          <text x="0" y="16" text-anchor="middle" font-size="9" font-family="var(--font-mono)" fill="var(--text-muted)">R = ${R} Ω</text>
-
-          ${loadType.includes('L') ? `
-            <!-- Inductor Coils -->
-            <path d="M -12 24 C -12 20 -4 20 -4 24 C -4 20 4 20 4 24 C 4 20 12 20 12 24" fill="none" stroke="var(--color-cyan)" stroke-width="2"/>
-            <text x="0" y="36" text-anchor="middle" font-size="9" font-family="var(--font-mono)" fill="var(--text-muted)">L = ${L_mH} mH</text>
-          ` : ''}
-
-          <!-- Live Load Current Badge -->
-          <g transform="translate(0, 48)">
-            <rect x="-32" y="5" width="64" height="18" rx="4" fill="rgba(5, 223, 114, 0.15)" stroke="rgba(5, 223, 114, 0.35)"/>
-            <text x="0" y="18" text-anchor="middle" font-size="10" font-family="var(--font-mono)" font-weight="700" fill="var(--color-emerald)">i = ${io >= 0 ? '+' : ''}${io.toFixed(2)} A</text>
-          </g>
-        </g>
+        ${renderLoadBlockSVG({
+          x: 590, loadType, R, L_mH, E_emf, vo, io, loadActive,
+          topY: -120, botY: 120, topLabel: `+ Vo (${vo.toFixed(1)} V)`, botLabel: '- Vo (GND)'
+        })}
       </svg>
     `;
   }
@@ -212,24 +289,31 @@
   function renderSinglePhaseHalfWave(opts) {
     const { devices, vo, io, vs, hasFWD, loadType, R, L_mH, E_emf, deviceType, isFWDConducting } = opts;
     const isThyristor = deviceType === 'thyristor';
-    const isConducting = devices.T1 || devices.D1;
+    const isConducting = !!(devices.T1 || devices.D1);
     const loadActive = io > 0.05;
 
     containerEl.innerHTML = `
       <svg viewBox="0 0 740 360" width="100%" height="100%">
-        <!-- Top Rail with Switch -->
+        <!-- Segmented Top Rail with Switch -->
+        <!-- Source to switch: active only when switch is conducting -->
         <line x1="120" y1="80" x2="270" y2="80" class="${wireClass(isConducting)}"/>
-        <line x1="330" y1="80" x2="580" y2="80" class="${wireClass(loadActive)}"/>
+        <!-- Switch output to FWD branch: active only when switch is conducting -->
+        <line x1="330" y1="80" x2="440" y2="80" class="${wireClass(isConducting)}"/>
+        <!-- FWD branch to load: active if switch conducts OR FWD freewheels -->
+        <line x1="440" y1="80" x2="580" y2="80" class="${wireClass(loadActive)}"/>
 
-        <!-- Return / Bottom Rail -->
-        <line x1="120" y1="280" x2="580" y2="280" class="${wireClass(loadActive)}"/>
+        <!-- Segmented Bottom Return Rail -->
+        <!-- Source to FWD branch: active only when source supplies current -->
+        <line x1="120" y1="280" x2="440" y2="280" class="${wireClass(isConducting)}"/>
+        <!-- FWD branch to load: carries full load return current -->
+        <line x1="440" y1="280" x2="580" y2="280" class="${wireClass(loadActive)}"/>
 
         <!-- AC Source Symbol -->
         <g transform="translate(120, 180)">
           <circle cx="0" cy="0" r="24" class="ac-source-circle" fill="rgba(0, 210, 255, 0.15)" stroke="var(--color-cyan)" stroke-width="2"/>
           <path d="M -12 0 Q -6 -12 0 0 Q 6 12 12 0" fill="none" stroke="var(--color-cyan)" stroke-width="2.5"/>
           <line x1="0" y1="-24" x2="0" y2="-100" class="${wireClass(isConducting)}"/>
-          <line x1="0" y1="24" x2="0" y2="100" class="${wireClass(loadActive)}"/>
+          <line x1="0" y1="24" x2="0" y2="100" class="${wireClass(isConducting)}"/>
           <text x="0" y="38" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text-main)">AC Source</text>
           <text x="0" y="52" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--color-cyan)">Vs = ${vs.toFixed(1)} V</text>
         </g>
@@ -250,20 +334,10 @@
         </g>
 
         <!-- Load Block -->
-        <g transform="translate(580, 180)">
-          <line x1="0" y1="-100" x2="0" y2="-50" class="${wireClass(loadActive)}"/>
-          <line x1="0" y1="50" x2="0" y2="100" class="${wireClass(loadActive)}"/>
-          <rect x="-35" y="-50" width="70" height="100" rx="8" class="load-box-rect" fill="#0f1b33" stroke="${loadActive ? 'var(--color-cyan)' : 'var(--border-light)'}" stroke-width="1.8"/>
-          <text x="0" y="-32" text-anchor="middle" font-size="11" font-weight="800" fill="var(--color-cyan)">${loadType} Load</text>
-          <text x="0" y="-8" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--text-muted)">R = ${R} Ω</text>
-          ${loadType.includes('L') ? `<text x="0" y="10" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--text-muted)">L = ${L_mH} mH</text>` : ''}
-          <text x="15" y="-95" font-size="11" font-weight="700" fill="var(--color-rose)">+ Vo (${vo.toFixed(1)} V)</text>
-          <text x="15" y="105" font-size="11" font-weight="700" fill="var(--color-cyan)">- Vo</text>
-          <g transform="translate(0, 36)">
-            <rect x="-30" y="0" width="60" height="16" rx="4" fill="rgba(5, 223, 114, 0.15)"/>
-            <text x="0" y="12" text-anchor="middle" font-size="9" font-family="var(--font-mono)" font-weight="700" fill="var(--color-emerald)">i = ${io.toFixed(2)} A</text>
-          </g>
-        </g>
+        ${renderLoadBlockSVG({
+          x: 580, loadType, R, L_mH, E_emf, vo, io, loadActive,
+          topY: -100, botY: 100, topLabel: `+ Vo (${vo.toFixed(1)} V)`, botLabel: '- Vo (Neutral)'
+        })}
       </svg>
     `;
   }
@@ -272,34 +346,44 @@
   // 3. THREE-PHASE HALF-WAVE (3-PULSE STAR) SVG
   // --------------------------------------------------------------------------
   function renderThreePhaseHalfWave(opts) {
-    const { devices, vo, io, vs, hasFWD, loadType, R, L_mH, deviceType } = opts;
+    const { devices, vo, io, vs, hasFWD, loadType, R, L_mH, E_emf, deviceType } = opts;
     const isThyristor = deviceType === 'thyristor';
     const loadActive = io > 0.05;
 
+    const cond1 = !!(devices.T1 || devices.D1);
+    const cond2 = !!(devices.T2 || devices.D2);
+    const cond3 = !!(devices.T3 || devices.D3);
+
     containerEl.innerHTML = `
       <svg viewBox="0 0 740 360" width="100%" height="100%">
-        <!-- Top Rail (+Vo) -->
-        <line x1="220" y1="50" x2="590" y2="50" class="${wireClass(loadActive)}"/>
+        <!-- Segmented Top Rail (+Vo) -->
+        <!-- 220 to 320: active only if T1 conducts -->
+        <line x1="220" y1="50" x2="320" y2="50" class="${wireClass(cond1)}"/>
+        <!-- 320 to 420: active if T1 or T2 conducts -->
+        <line x1="320" y1="50" x2="420" y2="50" class="${wireClass(cond1 || cond2)}"/>
+        <!-- 420 to 590: active if any phase conducts into the load -->
+        <line x1="420" y1="50" x2="590" y2="50" class="${wireClass(loadActive && (cond1 || cond2 || cond3))}"/>
+
         <!-- Star Neutral Return Rail (-Vo) -->
         <line x1="60" y1="310" x2="590" y2="310" class="${wireClass(loadActive)}"/>
 
         <!-- 3 Phase Supply Lines -->
         <!-- Phase A -->
-        <path d="M 60 110 L 220 110" class="${wireClass(devices.T1 || devices.D1)}"/>
+        <path d="M 60 110 L 220 110" class="${wireClass(cond1)}"/>
         <!-- Phase B -->
-        <path d="M 60 170 L 320 170" class="${wireClass(devices.T2 || devices.D2)}"/>
+        <path d="M 60 170 L 320 170" class="${wireClass(cond2)}"/>
         <!-- Phase C -->
-        <path d="M 60 230 L 420 230" class="${wireClass(devices.T3 || devices.D3)}"/>
+        <path d="M 60 230 L 420 230" class="${wireClass(cond3)}"/>
 
         <!-- Phase Connections to Top Rail through Switches -->
-        <line x1="220" y1="50" x2="220" y2="76" class="${wireClass(devices.T1 || devices.D1)}"/>
-        <line x1="220" y1="110" x2="220" y2="108" class="${wireClass(devices.T1 || devices.D1)}"/>
+        <line x1="220" y1="50" x2="220" y2="76" class="${wireClass(cond1)}"/>
+        <line x1="220" y1="110" x2="220" y2="108" class="${wireClass(cond1)}"/>
 
-        <line x1="320" y1="50" x2="320" y2="76" class="${wireClass(devices.T2 || devices.D2)}"/>
-        <line x1="320" y1="170" x2="320" y2="108" class="${wireClass(devices.T2 || devices.D2)}"/>
+        <line x1="320" y1="50" x2="320" y2="76" class="${wireClass(cond2)}"/>
+        <line x1="320" y1="170" x2="320" y2="108" class="${wireClass(cond2)}"/>
 
-        <line x1="420" y1="50" x2="420" y2="76" class="${wireClass(devices.T3 || devices.D3)}"/>
-        <line x1="420" y1="230" x2="420" y2="108" class="${wireClass(devices.T3 || devices.D3)}"/>
+        <line x1="420" y1="50" x2="420" y2="76" class="${wireClass(cond3)}"/>
+        <line x1="420" y1="230" x2="420" y2="108" class="${wireClass(cond3)}"/>
 
         <!-- 3-Phase Sources (Left) -->
         <g transform="translate(60, 170)">
@@ -310,25 +394,15 @@
         </g>
 
         <!-- 3 Switches -->
-        ${renderSwitchSVG('T1', isThyristor ? 'T1' : 'D1', isThyristor, 220, 92, devices.T1 || devices.D1)}
-        ${renderSwitchSVG('T2', isThyristor ? 'T2' : 'D2', isThyristor, 320, 92, devices.T2 || devices.D2)}
-        ${renderSwitchSVG('T3', isThyristor ? 'T3' : 'D3', isThyristor, 420, 92, devices.T3 || devices.D3)}
+        ${renderSwitchSVG('T1', isThyristor ? 'T1' : 'D1', isThyristor, 220, 92, cond1)}
+        ${renderSwitchSVG('T2', isThyristor ? 'T2' : 'D2', isThyristor, 320, 92, cond2)}
+        ${renderSwitchSVG('T3', isThyristor ? 'T3' : 'D3', isThyristor, 420, 92, cond3)}
 
         <!-- Load Block -->
-        <g transform="translate(590, 180)">
-          <line x1="0" y1="-130" x2="0" y2="-55" class="${wireClass(loadActive)}"/>
-          <line x1="0" y1="55" x2="0" y2="130" class="${wireClass(loadActive)}"/>
-          <rect x="-35" y="-55" width="70" height="110" rx="8" class="load-box-rect" fill="#0f1b33" stroke="${loadActive ? 'var(--color-cyan)' : 'var(--border-light)'}" stroke-width="1.8"/>
-          <text x="0" y="-38" text-anchor="middle" font-size="11" font-weight="800" fill="var(--color-cyan)">3-Phase HW</text>
-          <text x="0" y="-12" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--text-muted)">R = ${R} Ω</text>
-          <text x="0" y="12" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--text-muted)">L = ${L_mH} mH</text>
-          <text x="15" y="-120" font-size="11" font-weight="700" fill="var(--color-rose)">+ Vo (${vo.toFixed(1)} V)</text>
-          <text x="15" y="135" font-size="11" font-weight="700" fill="var(--color-cyan)">Neutral (GND)</text>
-          <g transform="translate(0, 48)">
-            <rect x="-30" y="0" width="60" height="16" rx="4" fill="rgba(5, 223, 114, 0.15)"/>
-            <text x="0" y="12" text-anchor="middle" font-size="9" font-family="var(--font-mono)" font-weight="700" fill="var(--color-emerald)">i = ${io.toFixed(2)} A</text>
-          </g>
-        </g>
+        ${renderLoadBlockSVG({
+          x: 590, loadType, R, L_mH, E_emf, vo, io, loadActive,
+          topY: -130, botY: 130, topLabel: `+ Vo (${vo.toFixed(1)} V)`, botLabel: 'Neutral (GND)'
+        })}
       </svg>
     `;
   }
@@ -337,24 +411,49 @@
   // 4. THREE-PHASE FULL-WAVE BRIDGE (6-PULSE) SVG
   // --------------------------------------------------------------------------
   function renderThreePhaseBridge(opts) {
-    const { devices, vo, io, vs, loadType, R, L_mH, deviceType } = opts;
+    const { devices, vo, io, vs, hasFWD, loadType, R, L_mH, E_emf, deviceType } = opts;
     const isThyristor = deviceType === 'thyristor';
     const loadActive = io > 0.05;
 
+    // Upper devices (T1/D1, T3/D3, T5/D5)
+    const condTop1 = !!(devices.T1 || devices.D1);
+    const condTop3 = !!(devices.T3 || devices.D3);
+    const condTop5 = !!(devices.T5 || devices.D5);
+
+    // Lower devices (T4/D4, T6/D6, T2/D2)
+    const condBot4 = !!(devices.T4 || devices.D4);
+    const condBot6 = !!(devices.T6 || devices.D6);
+    const condBot2 = !!(devices.T2 || devices.D2);
+
     containerEl.innerHTML = `
       <svg viewBox="0 0 740 360" width="100%" height="100%">
-        <!-- Top DC Rail (+Vo) -->
-        <line x1="180" y1="50" x2="610" y2="50" class="${wireClass(loadActive)}"/>
-        <!-- Bottom DC Rail (-Vo) -->
-        <line x1="180" y1="310" x2="610" y2="310" class="${wireClass(loadActive)}"/>
+        <!-- Segmented Top DC Rail (+Vo) -->
+        <!-- 180 to 210: structural rail end, always inactive -->
+        <line x1="180" y1="50" x2="210" y2="50" class="wire-base"/>
+        <!-- 210 to 330: active only if T1 conducts -->
+        <line x1="210" y1="50" x2="330" y2="50" class="${wireClass(condTop1)}"/>
+        <!-- 330 to 450: active if T1 or T3 conducts -->
+        <line x1="330" y1="50" x2="450" y2="50" class="${wireClass(condTop1 || condTop3)}"/>
+        <!-- 450 to 610: active if any upper switch supplies the load -->
+        <line x1="450" y1="50" x2="610" y2="50" class="${wireClass(loadActive && (condTop1 || condTop3 || condTop5))}"/>
+
+        <!-- Segmented Bottom DC Rail (-Vo) -->
+        <!-- 180 to 210: structural rail end, always inactive -->
+        <line x1="180" y1="310" x2="210" y2="310" class="wire-base"/>
+        <!-- 210 to 330: active only if return current reaches Leg 1 (T4/D4) -->
+        <line x1="210" y1="310" x2="330" y2="310" class="${wireClass(condBot4)}"/>
+        <!-- 330 to 450: active if return current reaches Leg 1 (T4) or Leg 2 (T6) -->
+        <line x1="330" y1="310" x2="450" y2="310" class="${wireClass(condBot4 || condBot6)}"/>
+        <!-- 450 to 610: carries return current from load to any active lower switch -->
+        <line x1="450" y1="310" x2="610" y2="310" class="${wireClass(loadActive && (condBot4 || condBot6 || condBot2))}"/>
 
         <!-- Phase Lines from Left to Bridge Legs -->
         <!-- Phase A -> Leg 1 (x=210) -->
-        <path d="M 50 140 L 210 140" class="${wireClass(devices.T1 || devices.D1 || devices.T4 || devices.D4)}"/>
+        <path d="M 50 140 L 210 140" class="${wireClass(condTop1 || condBot4)}"/>
         <!-- Phase B -> Leg 2 (x=330) -->
-        <path d="M 50 180 L 330 180" class="${wireClass(devices.T3 || devices.D3 || devices.T6 || devices.D6)}"/>
+        <path d="M 50 180 L 330 180" class="${wireClass(condTop3 || condBot6)}"/>
         <!-- Phase C -> Leg 3 (x=450) -->
-        <path d="M 50 220 L 450 220" class="${wireClass(devices.T5 || devices.D5 || devices.T2 || devices.D2)}"/>
+        <path d="M 50 220 L 450 220" class="${wireClass(condTop5 || condBot2)}"/>
 
         <!-- Phase Labels (Left) -->
         <g transform="translate(50, 0)">
@@ -364,47 +463,37 @@
         </g>
 
         <!-- Leg 1 Wires (Phase A: T1 top, T4 bottom) -->
-        <line x1="210" y1="50" x2="210" y2="80" class="${wireClass(devices.T1 || devices.D1)}"/>
-        <line x1="210" y1="140" x2="210" y2="114" class="${wireClass(devices.T1 || devices.D1)}"/>
-        <line x1="210" y1="140" x2="210" y2="246" class="${wireClass(devices.T4 || devices.D4)}"/>
-        <line x1="210" y1="280" x2="210" y2="310" class="${wireClass(devices.T4 || devices.D4)}"/>
+        <line x1="210" y1="50" x2="210" y2="80" class="${wireClass(condTop1)}"/>
+        <line x1="210" y1="140" x2="210" y2="114" class="${wireClass(condTop1)}"/>
+        <line x1="210" y1="140" x2="210" y2="246" class="${wireClass(condBot4)}"/>
+        <line x1="210" y1="280" x2="210" y2="310" class="${wireClass(condBot4)}"/>
 
         <!-- Leg 2 Wires (Phase B: T3 top, T6 bottom) -->
-        <line x1="330" y1="50" x2="330" y2="80" class="${wireClass(devices.T3 || devices.D3)}"/>
-        <line x1="330" y1="180" x2="330" y2="114" class="${wireClass(devices.T3 || devices.D3)}"/>
-        <line x1="330" y1="180" x2="330" y2="246" class="${wireClass(devices.T6 || devices.D6)}"/>
-        <line x1="330" y1="280" x2="330" y2="310" class="${wireClass(devices.T6 || devices.D6)}"/>
+        <line x1="330" y1="50" x2="330" y2="80" class="${wireClass(condTop3)}"/>
+        <line x1="330" y1="180" x2="330" y2="114" class="${wireClass(condTop3)}"/>
+        <line x1="330" y1="180" x2="330" y2="246" class="${wireClass(condBot6)}"/>
+        <line x1="330" y1="280" x2="330" y2="310" class="${wireClass(condBot6)}"/>
 
         <!-- Leg 3 Wires (Phase C: T5 top, T2 bottom) -->
-        <line x1="450" y1="50" x2="450" y2="80" class="${wireClass(devices.T5 || devices.D5)}"/>
-        <line x1="450" y1="220" x2="450" y2="114" class="${wireClass(devices.T5 || devices.D5)}"/>
-        <line x1="450" y1="220" x2="450" y2="246" class="${wireClass(devices.T2 || devices.D2)}"/>
-        <line x1="450" y1="280" x2="450" y2="310" class="${wireClass(devices.T2 || devices.D2)}"/>
+        <line x1="450" y1="50" x2="450" y2="80" class="${wireClass(condTop5)}"/>
+        <line x1="450" y1="220" x2="450" y2="114" class="${wireClass(condTop5)}"/>
+        <line x1="450" y1="220" x2="450" y2="246" class="${wireClass(condBot2)}"/>
+        <line x1="450" y1="280" x2="450" y2="310" class="${wireClass(condBot2)}"/>
 
         <!-- 6 Switches: T1, T3, T5 (Upper) and T4, T6, T2 (Lower) -->
-        ${renderSwitchSVG('T1', isThyristor ? 'T1' : 'D1', isThyristor, 210, 97, devices.T1 || devices.D1)}
-        ${renderSwitchSVG('T3', isThyristor ? 'T3' : 'D3', isThyristor, 330, 97, devices.T3 || devices.D3)}
-        ${renderSwitchSVG('T5', isThyristor ? 'T5' : 'D5', isThyristor, 450, 97, devices.T5 || devices.D5)}
+        ${renderSwitchSVG('T1', isThyristor ? 'T1' : 'D1', isThyristor, 210, 97, condTop1)}
+        ${renderSwitchSVG('T3', isThyristor ? 'T3' : 'D3', isThyristor, 330, 97, condTop3)}
+        ${renderSwitchSVG('T5', isThyristor ? 'T5' : 'D5', isThyristor, 450, 97, condTop5)}
 
-        ${renderSwitchSVG('T4', isThyristor ? 'T4' : 'D4', isThyristor, 210, 263, devices.T4 || devices.D4)}
-        ${renderSwitchSVG('T6', isThyristor ? 'T6' : 'D6', isThyristor, 330, 263, devices.T6 || devices.D6)}
-        ${renderSwitchSVG('T2', isThyristor ? 'T2' : 'D2', isThyristor, 450, 263, devices.T2 || devices.D2)}
+        ${renderSwitchSVG('T4', isThyristor ? 'T4' : 'D4', isThyristor, 210, 263, condBot4)}
+        ${renderSwitchSVG('T6', isThyristor ? 'T6' : 'D6', isThyristor, 330, 263, condBot6)}
+        ${renderSwitchSVG('T2', isThyristor ? 'T2' : 'D2', isThyristor, 450, 263, condBot2)}
 
         <!-- Load Block (Far Right) -->
-        <g transform="translate(610, 180)">
-          <line x1="0" y1="-130" x2="0" y2="-55" class="${wireClass(loadActive)}"/>
-          <line x1="0" y1="55" x2="0" y2="130" class="${wireClass(loadActive)}"/>
-          <rect x="-35" y="-55" width="70" height="110" rx="8" class="load-box-rect" fill="#0f1b33" stroke="${loadActive ? 'var(--color-cyan)' : 'var(--border-light)'}" stroke-width="1.8"/>
-          <text x="0" y="-38" text-anchor="middle" font-size="11" font-weight="800" fill="var(--color-cyan)">6-Pulse Bridge</text>
-          <text x="0" y="-12" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--text-muted)">R = ${R} Ω</text>
-          <text x="0" y="12" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--text-muted)">L = ${L_mH} mH</text>
-          <text x="15" y="-120" font-size="11" font-weight="700" fill="var(--color-rose)">+ Vo (${vo.toFixed(1)} V)</text>
-          <text x="15" y="135" font-size="11" font-weight="700" fill="var(--color-cyan)">- Vo (GND)</text>
-          <g transform="translate(0, 48)">
-            <rect x="-30" y="0" width="60" height="16" rx="4" fill="rgba(5, 223, 114, 0.15)"/>
-            <text x="0" y="12" text-anchor="middle" font-size="9" font-family="var(--font-mono)" font-weight="700" fill="var(--color-emerald)">i = ${io.toFixed(2)} A</text>
-          </g>
-        </g>
+        ${renderLoadBlockSVG({
+          x: 610, loadType, R, L_mH, E_emf, vo, io, loadActive,
+          topY: -130, botY: 130, topLabel: `+ Vo (${vo.toFixed(1)} V)`, botLabel: '- Vo (GND)'
+        })}
       </svg>
     `;
   }

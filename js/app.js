@@ -78,6 +78,9 @@
     dom.valueL = document.getElementById('valueL');
     dom.sliderVs = document.getElementById('sliderVs');
     dom.valueVs = document.getElementById('valueVs');
+    dom.sliderE = document.getElementById('sliderE');
+    dom.valueE = document.getElementById('valueE');
+    dom.groupSliderE = document.getElementById('groupSliderE');
 
     // Scope Tabs
     dom.scopeTabBtns = document.querySelectorAll('.scope-tab-btn');
@@ -252,6 +255,14 @@
     dom.valueL.textContent = `${state.L_mH} mH`;
     dom.sliderVs.value = state.Vs_rms;
     dom.valueVs.textContent = `${state.Vs_rms} V`;
+    if (dom.sliderE) {
+      dom.sliderE.value = state.E_emf;
+      dom.valueE.textContent = `${state.E_emf} V`;
+      const isRLE = state.loadType === 'RLE';
+      dom.groupSliderE.style.opacity = isRLE ? '1' : '0.35';
+      dom.groupSliderE.style.pointerEvents = isRLE ? 'auto' : 'none';
+      dom.sliderE.disabled = !isRLE;
+    }
 
     // Speed presets
     dom.speedPresetBtns.forEach(btn => {
@@ -442,6 +453,13 @@
       recalculateFullSimulation();
       updateUI();
     });
+    if (dom.sliderE) {
+      dom.sliderE.addEventListener('input', (e) => {
+        state.E_emf = parseInt(e.target.value, 10);
+        recalculateFullSimulation();
+        updateUI();
+      });
+    }
 
     // Scope Tabs
     dom.scopeTabBtns.forEach(btn => {

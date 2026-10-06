@@ -158,7 +158,7 @@
         isFWDConducting: instState.isFWDConducting
       },
       metrics,
-      theory: getTheoreticalModel(topology, deviceType, alpha, Vm, hasFWD)
+      theory: getTheoreticalModel(topology, deviceType, alpha, Vm, hasFWD, loadType, E_emf)
     };
   };
 
@@ -211,16 +211,17 @@
     if (topology === '1p_half') {
       const onStart = alpha;
       const onEnd = (hasFWD && isThyristor) ? Math.PI : (loadType === 'R' ? Math.PI : beta);
+      const isRLE = (loadType === 'RLE');
 
-      if (theta >= onStart && theta < onEnd) {
+      if (theta >= onStart && theta < onEnd && (!isRLE || va > E_emf)) {
         vo = va;
         deviceStates.T1 = isThyristor;
         deviceStates.D1 = !isThyristor;
-        is = Math.max(0, (vo - (loadType === 'RLE' ? E_emf : 0)) / (loadType === 'R' ? R : Z * 0.85));
+        is = Math.max(0, (vo - (isRLE ? E_emf : 0)) / (loadType === 'R' ? R : (L > 0 ? Z * 0.85 : R)));
         io = is;
         vt1 = 0;
         loopName = isThyristor ? 'Thyristor T1 Conduction' : 'Diode D1 Conduction';
-      } else if (hasFWD && theta >= Math.PI && theta < beta) {
+      } else if (hasFWD && theta >= Math.PI && theta < beta && !isRLE) {
         // Freewheeling interval
         vo = 0;
         is = 0;
@@ -230,11 +231,11 @@
         vt1 = va;
         loopName = 'Freewheeling via D_FW';
       } else {
-        vo = 0;
+        vo = isRLE ? E_emf : 0;
         io = 0;
         is = 0;
-        vt1 = va;
-        loopName = 'Off / Blocking';
+        vt1 = va - (isRLE ? E_emf : 0);
+        loopName = isRLE ? 'Off / Clamped to EMF (E)' : 'Off / Blocking';
       }
 
       gatePulse = isThyristor && Math.abs(theta - alpha) < 0.08;
@@ -245,22 +246,24 @@
     // -------------------------------------------------------------
     else if (topology === '1p_full') {
       const pi = Math.PI;
+      const isRLE = (loadType === 'RLE');
+      const zEff = (loadType === 'R') ? R : (L > 0 ? Z * 0.9 : R);
 
       if (isSemi) {
         // Semi-converter (T1, T2 thyristors; D3, D4 or FWD diodes)
-        if (theta >= alpha && theta < pi) {
+        if (theta >= alpha && theta < pi && (!isRLE || va > E_emf)) {
           vo = va;
-          is = Math.max(0, vo / (loadType === 'R' ? R : Z * 0.9));
+          is = Math.max(0, (vo - (isRLE ? E_emf : 0)) / zEff);
           io = is;
           deviceStates.T1 = true;
           deviceStates.D2 = true;
           vt1 = 0;
           loopName = 'Bridge Pair T1 + D2 (Positive Half)';
-        } else if (theta >= pi && theta < pi + alpha) {
+        } else if (theta >= pi && theta < pi + alpha && !isRLE) {
           // Freewheeling action via bridge diodes or FWD
           vo = 0;
           is = 0;
-          io = Math.max(0.5, (Vm * 0.6) / (loadType === 'R' ? R : Z * 0.9));
+          io = Math.max(0.5, (Vm * 0.6) / zEff);
           deviceStates.D2 = true;
           deviceStates.D4 = true;
           if (hasFWD) {
@@ -269,27 +272,35 @@
           }
           vt1 = va;
           loopName = hasFWD ? 'Freewheeling via D_FW' : 'Freewheeling via Bridge Diodes';
-        } else if (theta >= pi + alpha && theta < 2 * pi) {
+        } else if (theta >= pi + alpha && theta < 2 * pi && (!isRLE || -va > E_emf)) {
           vo = -va;
-          is = -Math.max(0, vo / (loadType === 'R' ? R : Z * 0.9));
+          is = -Math.max(0, (vo - (isRLE ? E_emf : 0)) / zEff);
           io = Math.abs(is);
           deviceStates.T3 = true;
           deviceStates.D4 = true;
           vt1 = 2 * va;
           loopName = 'Bridge Pair T3 + D4 (Negative Half)';
         } else {
-          // 0 to alpha freewheeling from previous cycle
-          vo = 0;
-          is = 0;
-          io = Math.max(0.5, (Vm * 0.6) / (loadType === 'R' ? R : Z * 0.9));
-          deviceStates.D2 = true;
-          deviceStates.D4 = true;
-          if (hasFWD) {
-            isFWDConducting = true;
-            deviceStates.DFW = true;
+          // Freewheeling or non-conduction gap
+          if (!isRLE) {
+            vo = 0;
+            is = 0;
+            io = Math.max(0.5, (Vm * 0.6) / zEff);
+            deviceStates.D2 = true;
+            deviceStates.D4 = true;
+            if (hasFWD) {
+              isFWDConducting = true;
+              deviceStates.DFW = true;
+            }
+            vt1 = va;
+            loopName = hasFWD ? 'Freewheeling via D_FW' : 'Freewheeling via Bridge Diodes';
+          } else {
+            vo = E_emf;
+            io = 0;
+            is = 0;
+            vt1 = va - E_emf;
+            loopName = 'Off / Clamped to EMF (E)';
           }
-          vt1 = va;
-          loopName = hasFWD ? 'Freewheeling via D_FW' : 'Freewheeling via Bridge Diodes';
         }
         gatePulse = Math.abs(theta - alpha) < 0.08 || Math.abs(theta - (pi + alpha)) < 0.08;
       }
@@ -297,62 +308,96 @@
       else if (!isThyristor) {
         // Pure Diode Bridge (D1, D2, D3, D4)
         if (theta >= 0 && theta < pi) {
-          vo = va;
-          is = Math.max(0, vo / (loadType === 'R' ? R : Z * 0.9));
-          io = is;
-          deviceStates.D1 = true;
-          deviceStates.D2 = true;
-          vt1 = 0;
-          loopName = 'Diode Pair D1 + D2 (Positive Half)';
+          if (!isRLE || va > E_emf) {
+            vo = va;
+            is = Math.max(0, (vo - (isRLE ? E_emf : 0)) / zEff);
+            io = is;
+            deviceStates.D1 = true;
+            deviceStates.D2 = true;
+            vt1 = 0;
+            loopName = 'Diode Pair D1 + D2 (Positive Half)';
+          } else {
+            vo = E_emf;
+            io = 0;
+            is = 0;
+            vt1 = va - E_emf;
+            loopName = 'Off / Clamped to EMF (E)';
+          }
         } else {
-          vo = -va;
-          is = -Math.max(0, vo / (loadType === 'R' ? R : Z * 0.9));
-          io = Math.abs(is);
-          deviceStates.D3 = true;
-          deviceStates.D4 = true;
-          vt1 = 2 * va;
-          loopName = 'Diode Pair D3 + D4 (Negative Half)';
+          if (!isRLE || -va > E_emf) {
+            vo = -va;
+            is = -Math.max(0, (vo - (isRLE ? E_emf : 0)) / zEff);
+            io = Math.abs(is);
+            deviceStates.D3 = true;
+            deviceStates.D4 = true;
+            vt1 = 2 * va;
+            loopName = 'Diode Pair D3 + D4 (Negative Half)';
+          } else {
+            vo = E_emf;
+            io = 0;
+            is = 0;
+            vt1 = va - E_emf;
+            loopName = 'Off / Clamped to EMF (E)';
+          }
         }
       }
 
       else {
         // Full Controlled Thyristor Bridge (T1, T2, T3, T4)
         if (theta >= alpha && theta < pi + alpha) {
-          vo = va;
-          is = vo / (loadType === 'R' ? R : Z * 0.9);
-          if (loadType === 'R' && vo < 0) {
-            vo = 0;
+          const rawVo = va;
+          if (isRLE && rawVo <= E_emf && L === 0) {
+            vo = E_emf;
+            io = 0;
             is = 0;
+            vt1 = va - E_emf;
+            loopName = 'Off / Clamped to EMF (E)';
+          } else {
+            vo = rawVo;
+            if (loadType === 'R' && vo < 0) {
+              vo = 0;
+              is = 0;
+            } else if (hasFWD && vo < 0) {
+              vo = 0;
+              is = 0;
+              isFWDConducting = true;
+              deviceStates.DFW = true;
+            } else {
+              is = Math.max(0, (vo - (isRLE ? E_emf : 0)) / zEff);
+              deviceStates.T1 = true;
+              deviceStates.T2 = true;
+            }
+            io = Math.abs(is);
+            vt1 = 0;
+            loopName = isFWDConducting ? 'Freewheeling via D_FW' : 'Bridge Pair T1 + T2 (Positive Half)';
           }
-          if (hasFWD && vo < 0) {
-            vo = 0;
-            is = 0;
-            isFWDConducting = true;
-            deviceStates.DFW = true;
-          }
-          io = Math.abs(is);
-          deviceStates.T1 = true;
-          deviceStates.T2 = true;
-          vt1 = 0;
-          loopName = isFWDConducting ? 'Freewheeling via D_FW' : 'Bridge Pair T1 + T2 (Positive Half)';
         } else {
-          vo = -va;
-          is = -vo / (loadType === 'R' ? R : Z * 0.9);
-          if (loadType === 'R' && vo < 0) {
-            vo = 0;
+          const rawVo = -va;
+          if (isRLE && rawVo <= E_emf && L === 0) {
+            vo = E_emf;
+            io = 0;
             is = 0;
+            vt1 = va - E_emf;
+            loopName = 'Off / Clamped to EMF (E)';
+          } else {
+            vo = rawVo;
+            if (loadType === 'R' && vo < 0) {
+              vo = 0;
+              is = 0;
+            } else if (hasFWD && vo < 0) {
+              vo = 0;
+              is = 0;
+              isFWDConducting = true;
+              deviceStates.DFW = true;
+            } else {
+              is = -Math.max(0, (vo - (isRLE ? E_emf : 0)) / zEff);
+              deviceStates.T3 = true;
+              deviceStates.T4 = true;
+            }
+            io = Math.abs(is);
+            vt1 = 2 * va;
+            loopName = isFWDConducting ? 'Freewheeling via D_FW' : 'Bridge Pair T3 + T4 (Negative Half)';
           }
-          if (hasFWD && vo < 0) {
-            vo = 0;
-            is = 0;
-            isFWDConducting = true;
-            deviceStates.DFW = true;
-          }
-          io = Math.abs(is);
-          deviceStates.T3 = true;
-          deviceStates.T4 = true;
-          vt1 = 2 * va;
-          loopName = isFWDConducting ? 'Freewheeling via D_FW' : 'Bridge Pair T3 + T4 (Negative Half)';
         }
         gatePulse = Math.abs(theta - alpha) < 0.08 || Math.abs(theta - (pi + alpha)) < 0.08;
       }
@@ -362,52 +407,63 @@
     // TOPOLOGY 3: THREE-PHASE HALF-WAVE (3-PULSE STAR)
     // -------------------------------------------------------------
     else if (topology === '3p_half') {
+      const isRLE = (loadType === 'RLE');
+      const zEff = (loadType === 'R') ? R : (L > 0 ? Z * 0.95 : R);
+
       // Natural crossover points occur at pi/6 (30 deg), 5pi/6 (150 deg), 9pi/6 (270 deg)
       const t1Start = (Math.PI / 6) + alpha;
       const t2Start = (5 * Math.PI / 6) + alpha;
       const t3Start = (9 * Math.PI / 6) + alpha;
 
       let activePhase = 1;
+      let rawVo = va;
       if (theta >= t1Start && theta < t2Start) {
         activePhase = 1;
+        rawVo = va;
       } else if (theta >= t2Start && theta < t3Start) {
         activePhase = 2;
+        rawVo = vb;
       } else {
         activePhase = 3;
+        rawVo = vc;
       }
 
-      if (activePhase === 1) {
-        vo = va;
-        deviceStates.T1 = isThyristor;
-        deviceStates.D1 = !isThyristor;
-        is = vo / (loadType === 'R' ? R : Z);
-        loopName = isThyristor ? 'Thyristor T1 (Phase A)' : 'Diode D1 (Phase A)';
-        vt1 = 0;
-      } else if (activePhase === 2) {
-        vo = vb;
-        deviceStates.T2 = isThyristor;
-        deviceStates.D2 = !isThyristor;
-        is = 0; // Phase A is idle
-        loopName = isThyristor ? 'Thyristor T2 (Phase B)' : 'Diode D2 (Phase B)';
-        vt1 = va - vb;
+      if (isRLE && rawVo <= E_emf) {
+        vo = E_emf;
+        io = 0;
+        is = 0;
+        vt1 = va - E_emf;
+        loopName = 'Off / Clamped to EMF (E)';
       } else {
-        vo = vc;
-        deviceStates.T3 = isThyristor;
-        deviceStates.D3 = !isThyristor;
-        is = 0; // Phase A is idle
-        loopName = isThyristor ? 'Thyristor T3 (Phase C)' : 'Diode D3 (Phase C)';
-        vt1 = va - vc;
+        vo = rawVo;
+        if (loadType === 'R' && vo < 0) vo = 0;
+        if (hasFWD && vo < 0) {
+          vo = 0;
+          isFWDConducting = true;
+          deviceStates.DFW = true;
+          loopName = 'Freewheeling via D_FW';
+        } else {
+          if (activePhase === 1) {
+            deviceStates.T1 = isThyristor;
+            deviceStates.D1 = !isThyristor;
+            loopName = isThyristor ? 'Thyristor T1 (Phase A)' : 'Diode D1 (Phase A)';
+            vt1 = 0;
+          } else if (activePhase === 2) {
+            deviceStates.T2 = isThyristor;
+            deviceStates.D2 = !isThyristor;
+            loopName = isThyristor ? 'Thyristor T2 (Phase B)' : 'Diode D2 (Phase B)';
+            vt1 = va - vb;
+          } else {
+            deviceStates.T3 = isThyristor;
+            deviceStates.D3 = !isThyristor;
+            loopName = isThyristor ? 'Thyristor T3 (Phase C)' : 'Diode D3 (Phase C)';
+            vt1 = va - vc;
+          }
+        }
+        io = Math.max(0, (vo - (isRLE ? E_emf : 0)) / zEff);
+        is = (activePhase === 1) ? io : 0;
       }
 
-      if (loadType === 'R' && vo < 0) vo = 0;
-      if (hasFWD && vo < 0) {
-        vo = 0;
-        isFWDConducting = true;
-        deviceStates.DFW = true;
-        loopName = 'Freewheeling via D_FW';
-      }
-
-      io = Math.max(0, vo / (loadType === 'R' ? R : Z * 0.95));
       gatePulse = isThyristor && (
         Math.abs(theta - t1Start) < 0.08 ||
         Math.abs(theta - t2Start) < 0.08 ||
@@ -419,75 +475,71 @@
     // TOPOLOGY 4: THREE-PHASE FULL-WAVE BRIDGE (6-PULSE GRAETZ)
     // -------------------------------------------------------------
     else if (topology === '3p_full') {
-      // 6-pulse line-to-line conduction intervals
-      // Upper group: T1(Phase A), T3(Phase B), T5(Phase C)
-      // Lower group: T4(Phase A), T6(Phase B), T2(Phase C)
-      // Natural firing angle is shifted by alpha from pi/3 (60 deg)
+      const isRLE = (loadType === 'RLE');
+      const zEff = (loadType === 'R') ? R : (L > 0 ? Z * 0.98 : R);
+
       const base = (theta - alpha + 2 * Math.PI) % (2 * Math.PI);
       const interval = Math.floor(base / (Math.PI / 3));
 
+      let rawVo = 0;
+      let activeUpper = 1; // 1, 3, 5
+      let activeLower = 6; // 4, 6, 2
+      let activeName = '';
+
       switch (interval) {
-        case 0: // T1 and T6 conduct (v_ab)
-          vo = va - vb;
-          deviceStates.T1 = isThyristor; deviceStates.D1 = !isThyristor;
-          deviceStates.T6 = isThyristor; deviceStates.D6 = !isThyristor;
-          is = vo / (loadType === 'R' ? R : Z);
-          vt1 = 0;
-          loopName = isThyristor ? 'Pair T1 (Ph A) + T6 (Ph B)' : 'Pair D1 + D6 (Ph A & B)';
+        case 0:
+          rawVo = va - vb; activeUpper = 1; activeLower = 6;
+          activeName = isThyristor ? 'Pair T1 (Ph A) + T6 (Ph B)' : 'Pair D1 + D6 (Ph A & B)';
           break;
-        case 1: // T1 and T2 conduct (v_ac)
-          vo = va - vc;
-          deviceStates.T1 = isThyristor; deviceStates.D1 = !isThyristor;
-          deviceStates.T2 = isThyristor; deviceStates.D2 = !isThyristor;
-          is = vo / (loadType === 'R' ? R : Z);
-          vt1 = 0;
-          loopName = isThyristor ? 'Pair T1 (Ph A) + T2 (Ph C)' : 'Pair D1 + D2 (Ph A & C)';
+        case 1:
+          rawVo = va - vc; activeUpper = 1; activeLower = 2;
+          activeName = isThyristor ? 'Pair T1 (Ph A) + T2 (Ph C)' : 'Pair D1 + D2 (Ph A & C)';
           break;
-        case 2: // T3 and T2 conduct (v_bc)
-          vo = vb - vc;
-          deviceStates.T3 = isThyristor; deviceStates.D3 = !isThyristor;
-          deviceStates.T2 = isThyristor; deviceStates.D2 = !isThyristor;
-          is = 0;
-          vt1 = va - vb;
-          loopName = isThyristor ? 'Pair T3 (Ph B) + T2 (Ph C)' : 'Pair D3 + D2 (Ph B & C)';
+        case 2:
+          rawVo = vb - vc; activeUpper = 3; activeLower = 2;
+          activeName = isThyristor ? 'Pair T3 (Ph B) + T2 (Ph C)' : 'Pair D3 + D2 (Ph B & C)';
           break;
-        case 3: // T3 and T4 conduct (v_ba)
-          vo = vb - va;
-          deviceStates.T3 = isThyristor; deviceStates.D3 = !isThyristor;
-          deviceStates.T4 = isThyristor; deviceStates.D4 = !isThyristor;
-          is = -vo / (loadType === 'R' ? R : Z);
-          vt1 = va - vb;
-          loopName = isThyristor ? 'Pair T3 (Ph B) + T4 (Ph A)' : 'Pair D3 + D4 (Ph B & A)';
+        case 3:
+          rawVo = vb - va; activeUpper = 3; activeLower = 4;
+          activeName = isThyristor ? 'Pair T3 (Ph B) + T4 (Ph A)' : 'Pair D3 + D4 (Ph B & A)';
           break;
-        case 4: // T5 and T4 conduct (v_ca)
-          vo = vc - va;
-          deviceStates.T5 = isThyristor; deviceStates.D5 = !isThyristor;
-          deviceStates.T4 = isThyristor; deviceStates.D4 = !isThyristor;
-          is = -vo / (loadType === 'R' ? R : Z);
-          vt1 = va - vc;
-          loopName = isThyristor ? 'Pair T5 (Ph C) + T4 (Ph A)' : 'Pair D5 + D4 (Ph C & A)';
+        case 4:
+          rawVo = vc - va; activeUpper = 5; activeLower = 4;
+          activeName = isThyristor ? 'Pair T5 (Ph C) + T4 (Ph A)' : 'Pair D5 + D4 (Ph C & A)';
           break;
-        case 5: // T5 and T6 conduct (v_cb)
+        case 5:
         default:
-          vo = vc - vb;
-          deviceStates.T5 = isThyristor; deviceStates.D5 = !isThyristor;
-          deviceStates.T6 = isThyristor; deviceStates.D6 = !isThyristor;
-          is = 0;
-          vt1 = va - vc;
-          loopName = isThyristor ? 'Pair T5 (Ph C) + T6 (Ph B)' : 'Pair D5 + D6 (Ph C & B)';
+          rawVo = vc - vb; activeUpper = 5; activeLower = 6;
+          activeName = isThyristor ? 'Pair T5 (Ph C) + T6 (Ph B)' : 'Pair D5 + D6 (Ph C & B)';
           break;
       }
 
-      if (loadType === 'R' && vo < 0) vo = 0;
-      if (hasFWD && vo < 0) {
-        vo = 0;
-        isFWDConducting = true;
-        deviceStates.DFW = true;
-        loopName = 'Freewheeling via D_FW';
+      if (isRLE && rawVo <= E_emf) {
+        vo = E_emf;
+        io = 0;
+        is = 0;
+        vt1 = va - vb - E_emf;
+        loopName = 'Off / Clamped to EMF (E)';
+      } else {
+        vo = rawVo;
+        if (loadType === 'R' && vo < 0) vo = 0;
+        if (hasFWD && vo < 0) {
+          vo = 0;
+          isFWDConducting = true;
+          deviceStates.DFW = true;
+          loopName = 'Freewheeling via D_FW';
+        } else {
+          // Set switches
+          deviceStates['T' + activeUpper] = isThyristor;
+          deviceStates['D' + activeUpper] = !isThyristor;
+          deviceStates['T' + activeLower] = isThyristor;
+          deviceStates['D' + activeLower] = !isThyristor;
+          loopName = activeName;
+          vt1 = (activeUpper === 1) ? 0 : (va - vb);
+        }
+        io = Math.max(0, (vo - (isRLE ? E_emf : 0)) / zEff);
+        is = (activeUpper === 1) ? io : (activeLower === 4 ? -io : 0);
       }
-
-      io = Math.max(0, vo / (loadType === 'R' ? R : Z * 0.98));
-      gatePulse = isThyristor && (base % (Math.PI / 3) < 0.08);
     }
 
     return {
@@ -572,7 +624,7 @@
   /**
    * Generates theoretical analytical equations & values
    */
-  function getTheoreticalModel(topology, deviceType, alpha, Vm, hasFWD) {
+  function getTheoreticalModel(topology, deviceType, alpha, Vm, hasFWD, loadType, E_emf) {
     let formula = '';
     let description = '';
     let idealVdc = 0;
@@ -621,6 +673,12 @@
         description = 'Three-Phase Full-Wave 6-Pulse Fully Controlled Bridge';
         idealVdc = ((3 * Math.sqrt(3) * Vm) / Math.PI) * Math.cos(alpha);
       }
+    }
+
+    if (loadType === 'RLE') {
+      description += ` with R-L-E Load (DC Back-EMF E = ${E_emf} V)`;
+      formula += ' | I_dc = (V_dc - E) / R';
+      if (idealVdc < E_emf) idealVdc = E_emf;
     }
 
     return {

@@ -808,6 +808,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  transition: opacity 0.2s ease;
 }
 
 .slider-label-row {
@@ -912,6 +913,10 @@ body {
 
 .range-styled.emerald::-webkit-slider-thumb {
   background: var(--color-emerald);
+}
+
+.range-styled.rose::-webkit-slider-thumb {
+  background: var(--color-rose);
 }
 
 /* KPI Telemetry Cards */
