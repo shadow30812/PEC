@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoltBridge - Power Electronics Studio</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20%220%22%20%22100%22%20%22100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-logo">⚡</div>
+      <div class="brand-text">
+        <h1>VoltBridge <span class="brand-tag">Power Electronics Studio</span></h1>
+        <div class="brand-subtitle">Interactive Single-Phase &amp; Three-Phase Diode/Thyristor Bridge Converter Simulation</div>
+      </div>
+    </div>
+
+    <!-- Student Author Information -->
+    <div class="student-author-card">
+      <span class="author-label">Developed by</span>
+      <span class="author-name">Swastik Kumar Rout</span>
+      <span class="author-roll">24EE10099</span>
+    </div>
+    <div class="header-actions">
+      <button id="btnThemeToggle" class="btn-header">☀️ Light Mode</button>
+      <button id="btnFullscreenStudio" class="btn-header">⛶ Full Screen Studio</button>
+      <button id="btnOpenDerivations" class="btn-header primary-action">📜 Waveform Analysis &amp; Derivations</button>
+      <button id="btnOpenPresets" class="btn-header">📑 Presets</button>
+      <button id="btnOpenTheory" class="btn-header">📖 Theory</button>
+      <button id="btnResetHeader" class="btn-header" onclick="document.getElementById('btnReset').click()">↺</button>
+    </div>
+  </header>
+
+  <!-- Main Application Container -->
+  <main class="app-container">
+
+    <!-- Top Split Studio: Circuit Schematic & Oscilloscope -->
+    <section class="studio-grid">
+
+      <!-- Left Card: Dynamic Circuit Schematic -->
+      <article class="panel-card">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <span class="panel-icon">⚡</span>
+            <span class="panel-title">Circuit Schematic Diagram</span>
+            <span id="schematicBadge" class="panel-badge badge-emerald">1-PHASE FULL-BRIDGE</span>
+          </div>
+          <div class="panel-title-group">
+            <div class="loop-status-pill">
+              <span class="loop-dot"></span>
+              <span id="loopStatusText">Bridge Pair T3 + T4 (Negative Half)</span>
+            </div>
+            <button class="icon-btn" title="Toggle Fullscreen" onclick="this.closest('.panel-card').requestFullscreen()">⛶</button>
+          </div>
+        </div>
+
+        <div class="schematic-canvas-area" id="schematicContainer">
+          <!-- Dynamic SVG injected via js/schematic-engine.js -->
+        </div>
+      </article>
+
+      <!-- Right Card: Waveform Scope & FFT Analyzer -->
+      <article class="panel-card">
+        <div class="panel-header">
+          <div class="scope-tabs">
+            <button class="scope-tab-btn" data-tab="superimposed">≋ Superimposed</button>
+            <button class="scope-tab-btn" data-tab="channels">⫶ Oscilloscope Channels</button>
+            <button class="scope-tab-btn active" data-tab="fft">📊 Harmonics (FFT)</button>
+          </div>
+          <button class="icon-btn" title="Toggle Scope Fullscreen" onclick="this.closest('.panel-card').requestFullscreen()">⛶</button>
+        </div>
+
+        <div class="scope-canvas-area">
+          <canvas id="oscilloscopeCanvas"></canvas>
+        </div>
+
+        <!-- Angle wt Scrubber Footer -->
+        <div class="scope-scrubber-bar">
+          <label class="scrubber-label" for="wtSlider">
+            <span>⏱ Angle ωt:</span>
+          </label>
+          <input type="range" id="wtSlider" class="scrubber-slider" min="0" max="360" step="0.5" value="248.5">
+          <span id="wtValue" class="scrubber-val">248.5°</span>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- Playback Control Bar -->
+    <section class="playback-bar">
+      <div class="playback-buttons">
+        <button id="btnPlay" class="btn-playback btn-play">
+          <span>▶</span> <span id="btnPlayText">Run Real-Time</span>
+        </button>
+        <button id="btnStepBack" class="btn-playback btn-step" title="Step Back 5°">◀◀</button>
+        <button id="btnStepForward" class="btn-playback btn-step" title="Step Forward 5°">▶▶</button>
+        <button id="btnReset" class="btn-playback btn-step" title="Reset Phase Angle to 0°">↺</button>
+      </div>
+
+      <div class="speed-control-group">
+        <span class="speed-label">⏱ Speed:</span>
+        <input type="range" id="speedSlider" class="range-styled" min="0.1" max="2.0" step="0.1" value="1.0" style="width: 140px;">
+        <div class="speed-presets">
+          <button class="btn-speed" data-speed="0.1">0.1x</button>
+          <button class="btn-speed" data-speed="0.2">0.2x</button>
+          <button class="btn-speed" data-speed="0.5">0.5x</button>
+          <button class="btn-speed active" data-speed="1.0">1x</button>
+          <button class="btn-speed" data-speed="2.0">2x</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom Controls Grid -->
+    <section class="controls-grid">
+
+      <!-- Column 1: Converter Topology -->
+      <div class="control-card">
+        <div class="control-card-title">
+          <i>⚙</i> CONVERTER TOPOLOGY
+        </div>
+        <div class="segmented-group">
+          <button id="btnPhase1" class="btn-segment active">Single-Phase (1Φ)</button>
+          <button id="btnPhase3" class="btn-segment">Three-Phase (3Φ)</button>
+        </div>
+        <div class="segmented-group">
+          <button id="btnBridgeFull" class="btn-segment active">Full-Bridge</button>
+          <button id="btnBridgeHalf" class="btn-segment">Half-Wave</button>
+        </div>
+        <div class="device-setup-row">
+          <span class="device-setup-label">Quick Device Setup:</span>
+          <div class="device-quick-btns">
+            <button id="btnDeviceDiodes" class="btn-device-type">All Diodes</button>
+            <button id="btnDeviceThyristors" class="btn-device-type active">All Thyristors</button>
+            <button id="btnDeviceSemi" class="btn-device-type">Semi-Conv</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Column 2: Firing Angle & FWD -->
+      <div class="control-card">
+        <div class="control-card-title">
+          <i>⚡</i> FIRING ANGLE α &amp; FWD
+        </div>
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span class="slider-title">Firing Angle (α):</span>
+            <span id="alphaValue" class="slider-value-badge">45°</span>
+          </div>
+          <input type="range" id="alphaSlider" class="range-styled amber" min="0" max="180" step="1" value="45">
+          <div class="alpha-presets">
+            <button class="btn-alpha-preset" data-alpha="0">0°</button>
+            <button class="btn-alpha-preset" data-alpha="30">30°</button>
+            <button class="btn-alpha-preset active" data-alpha="45">45°</button>
+            <button class="btn-alpha-preset" data-alpha="60">60°</button>
+            <button class="btn-alpha-preset" data-alpha="90">90°</button>
+            <button class="btn-alpha-preset" data-alpha="120">120°</button>
+            <button class="btn-alpha-preset" data-alpha="150">150°</button>
+          </div>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Freewheeling Diode (D_FW):</span>
+          <button id="btnToggleFWD" class="toggle-switch-btn">
+            <span id="fwdStatusText">Disconnected</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Column 3: Load & Source Parameters -->
+      <div class="control-card">
+        <div class="control-card-title">
+          <i>⚡</i> LOAD &amp; SOURCE PARAMETERS
+        </div>
+        <div class="segmented-group" style="grid-template-columns: 1fr 1fr 1fr;">
+          <button id="btnLoadR" class="btn-segment">R Load</button>
+          <button id="btnLoadRL" class="btn-segment active emerald">RL Load</button>
+          <button id="btnLoadRLE" class="btn-segment">RLE Load</button>
+        </div>
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span class="slider-title">R (Resistance):</span>
+            <span id="valueR" class="slider-value-badge" style="color: var(--color-cyan);">20 Ω</span>
+          </div>
+          <input type="range" id="sliderR" class="range-styled" min="1" max="100" step="1" value="20">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span class="slider-title">L (Inductance):</span>
+            <span id="valueL" class="slider-value-badge" style="color: var(--color-cyan);">45 mH</span>
+          </div>
+          <input type="range" id="sliderL" class="range-styled" min="0" max="200" step="1" value="45">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span class="slider-title">Source RMS:</span>
+            <span id="valueVs" class="slider-value-badge" style="color: var(--color-cyan);">230 V</span>
+          </div>
+          <input type="range" id="sliderVs" class="range-styled" min="50" max="415" step="5" value="230">
+        </div>
+      </div>
+
+    </section>
+
+    <!-- KPI Telemetry Cards -->
+    <section class="telemetry-grid">
+
+      <!-- Card 1: Avg DC Voltage -->
+      <div class="telemetry-card">
+        <div class="telemetry-header">
+          <span class="telemetry-name">Avg DC Voltage</span>
+          <span class="telemetry-tag badge-cyan">V_dc</span>
+        </div>
+        <div class="telemetry-val-row">
+          <span id="kpiVdc" class="telemetry-val">158.6</span>
+          <span class="telemetry-unit">V</span>
+        </div>
+        <span id="kpiVrms" class="telemetry-subtext">V_rms = 224.7 V</span>
+      </div>
+
+      <!-- Card 2: Avg DC Current -->
+      <div class="telemetry-card">
+        <div class="telemetry-header">
+          <span class="telemetry-name">Avg DC Current</span>
+          <span class="telemetry-tag badge-emerald">I_dc</span>
+        </div>
+        <div class="telemetry-val-row">
+          <span id="kpiIdc" class="telemetry-val" style="color: var(--color-emerald);">7.91</span>
+          <span class="telemetry-unit">A</span>
+        </div>
+        <span id="kpiIrms" class="telemetry-subtext">I_rms = 9.80 A</span>
+      </div>
+
+      <!-- Card 3: Output Power -->
+      <div class="telemetry-card">
+        <div class="telemetry-header">
+          <span class="telemetry-name">Output Power</span>
+          <span class="telemetry-tag badge-amber">P_load</span>
+        </div>
+        <div class="telemetry-val-row">
+          <span id="kpiPload" class="telemetry-val" style="color: var(--color-amber);">1626.1</span>
+          <span class="telemetry-unit">W</span>
+        </div>
+        <span id="kpiSin" class="telemetry-subtext">S_in = 2070 VA</span>
+      </div>
+
+      <!-- Card 4: Power Factor -->
+      <div class="telemetry-card">
+        <div class="telemetry-header">
+          <span class="telemetry-name">Power Factor</span>
+          <span class="telemetry-tag" style="background: rgba(179, 102, 255, 0.15); color: var(--color-purple); border: 1px solid rgba(179, 102, 255, 0.3);">PF</span>
+        </div>
+        <div class="telemetry-val-row">
+          <span id="kpiPF" class="telemetry-val" style="color: var(--color-purple);">0.785</span>
+        </div>
+        <span id="kpiCosPhi1" class="telemetry-subtext">cos(φ1) = 0.707</span>
+      </div>
+
+      <!-- Card 5: Ripple Factor -->
+      <div class="telemetry-card">
+        <div class="telemetry-header">
+          <span class="telemetry-name">Ripple Factor</span>
+          <span class="telemetry-tag" style="background: rgba(255, 64, 113, 0.15); color: var(--color-rose); border: 1px solid rgba(255, 64, 113, 0.3);">RF</span>
+        </div>
+        <div class="telemetry-val-row">
+          <span id="kpiRF" class="telemetry-val" style="color: var(--color-rose);">1.004</span>
+        </div>
+        <span id="kpiFF" class="telemetry-subtext">Form Factor FF = 1.42</span>
+      </div>
+
+      <!-- Card 6: Source THD_i -->
+      <div class="telemetry-card">
+        <div class="telemetry-header">
+          <span class="telemetry-name">Source THD_i</span>
+          <span class="telemetry-tag badge-cyan">THD</span>
+        </div>
+        <div class="telemetry-val-row">
+          <span id="kpiTHD" class="telemetry-val" style="color: var(--color-cyan);">5.0</span>
+          <span class="telemetry-unit">%</span>
+        </div>
+        <span id="kpiConductionMode" class="telemetry-tag badge-amber" style="align-self: flex-start; margin-top: 2px;">⚠ DCM Mode</span>
+      </div>
+
+    </section>
+
+    <!-- Analytical Theory & Formula Banner (Footer) -->
+    <section class="theory-banner">
+      <div class="theory-info-col">
+        <div class="theory-headline">
+          <i>📖</i> <span id="theoryHeadline">1-Phase Semi-Converter (Half-Controlled Bridge / with FWD) — Analytical DC Voltage Equation</span>
+        </div>
+        <div id="theoryDesc" class="theory-desc">One quadrant operation with freewheeling action clamping negative voltage spikes.</div>
+      </div>
+      <div class="theory-formula-col">
+        <div class="formula-box">
+          <span class="formula-title">THEORETICAL FORMULA</span>
+          <span id="theoryFormulaMath" class="formula-math">V_{dc} = \frac{V_m}{\pi} (1 + \cos\alpha)</span>
+        </div>
+        <div class="ideal-box">
+          <span class="ideal-title">IDEAL THEORETICAL V_DC</span>
+          <span id="idealVdcValue" class="ideal-value">176.7 V</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODALS -->
+
+  <!-- 1. Theory & Waveform Derivations Modal -->
+  <div id="theoryModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">📖 Power Electronics Converter Derivations &amp; Formulas</div>
+        <button class="icon-btn btn-close-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <h3>1. Single-Phase Rectifiers</h3>
+        <table>
+          <thead>
+            <tr><th>Configuration</th><th>Analytical V_dc Formula</th><th>Conduction Characteristics</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>1Φ Half-Wave (Diode)</td><td><code>Vm / π ≈ 0.318 Vm</code></td><td>Conduction angle = 180° for R load. High ripple factor (1.21).</td></tr>
+            <tr><td>1Φ Half-Wave (Controlled)</td><td><code>(Vm / 2π) (1 + cos α)</code></td><td>With FWD or R load. Firing angle α controllable from 0° to 180°.</td></tr>
+            <tr><td>1Φ Full-Wave Bridge (Diode)</td><td><code>2 Vm / π ≈ 0.636 Vm</code></td><td>Conduction occurs in alternate pairs (D1+D2, D3+D4).</td></tr>
+            <tr><td>1Φ Full-Wave Controlled</td><td><code>(2 Vm / π) cos α</code></td><td>Continuous conduction with RL load. Can operate in inverter mode if α > 90°.</td></tr>
+            <tr><td>1Φ Semi-Converter</td><td><code>(Vm / π) (1 + cos α)</code></td><td>Operates only in first quadrant; freewheeling clamps output to zero.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>2. Three-Phase Rectifiers</h3>
+        <table>
+          <thead>
+            <tr><th>Configuration</th><th>Analytical V_dc Formula</th><th>Conduction Characteristics</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>3Φ Half-Wave (3-Pulse)</td><td><code>(3√3 Vm / 2π) cos α ≈ 0.827 Vm cos α</code></td><td>Each switch conducts for 120°. Natural commutation occurs at 30°.</td></tr>
+            <tr><td>3Φ Full-Bridge (6-Pulse)</td><td><code>(3√3 Vm / π) cos α ≈ 1.654 Vm cos α</code></td><td>6-pulse output with very low ripple (4.2%). Triplen harmonics cancelled.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>3. Harmonic Decomposition &amp; Power Factor</h3>
+        <p>For AC source current in a rectifier with highly inductive load:</p>
+        <p>• Fundamental RMS current: <code>I_s1 = (2√2 / π) I_dc</code> (Single-phase bridge)</p>
+        <p>• Total Harmonic Distortion: <code>THD_i = √(I_s^2 - I_s1^2) / I_s1</code></p>
+        <p>• Displacement Power Factor: <code>DPF = cos(φ1) ≈ cos(α)</code></p>
+        <p>• Total Power Factor: <code>PF = (I_s1 / I_s) × cos(φ1)</code></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Presets Modal -->
+  <div id="presetsModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">📑 Quick Engineering Scenarios &amp; Presets</div>
+        <button class="icon-btn btn-close-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="preset-card-grid">
+          <div class="preset-item" data-preset="industrial_dc_drive">
+            <h4>🏭 Industrial DC Motor Drive</h4>
+            <p>1-Phase Full Controlled Thyristor Bridge with high inductance (RL load) and α = 45°.</p>
+          </div>
+          <div class="preset-item" data-preset="battery_charger">
+            <h4>🔋 Battery Charger Station</h4>
+            <p>1-Phase Semi-Converter with Freewheeling Diode and RLE back-EMF battery load.</p>
+          </div>
+          <div class="preset-item" data-preset="heater_control">
+            <h4>🔥 Industrial Resistance Heater</h4>
+            <p>1-Phase Controlled Bridge with pure resistive load (R = 15 Ω, α = 60°).</p>
+          </div>
+          <div class="preset-item" data-preset="three_phase_smelter">
+            <h4>⚡ Heavy 3-Phase 6-Pulse Converter</h4>
+            <p>3-Phase Full Controlled Graetz Bridge on 400V supply with heavy inductive filtering.</p>
+          </div>
+          <div class="preset-item" data-preset="three_phase_uncontrolled">
+            <h4>🏭 3-Phase Uncontrolled Utility DC Bus</h4>
+            <p>6-Pulse Diode Bridge on 415V RMS supply, illustrating standard utility rectifier.</p>
+          </div>
+          <div class="preset-item" data-preset="classic_half_wave">
+            <h4>🔬 Classical Half-Wave with FWD</h4>
+            <p>Single-phase half wave diode rectifier with freewheeling diode action.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modular Scripts in Execution Order -->
+  <script src="js/math-engine.js"></script>
+  <script src="js/fft-engine.js"></script>
+  <script src="js/schematic-engine.js"></script>
+  <script src="js/scope-engine.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
